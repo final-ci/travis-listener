@@ -6,6 +6,9 @@ require 'multi_json'
 require 'ipaddr'
 require 'metriks'
 
+require 'travis/listener/providers/github'
+require 'travis/listener/providers/stash'
+
 module Travis
   module Listener
     class App < Sinatra::Base
@@ -13,6 +16,7 @@ module Travis
 
       # use Rack::CommonLogger for request logging
       enable :logging, :dump_errors
+      use Rack::CommonLogger, STDERR
 
       # see https://github.com/github/github-services/blob/master/lib/services/travis.rb#L1-2
       set :events, %w[push pull_request]
@@ -32,12 +36,29 @@ module Travis
 
       # the main endpoint for scm services
       post '/' do
+        set_provider('github')
+        handle_request
+      end
+
+      post '/stash' do
+        set_provider('stash')
+        handle_request
+      end
+
+      #jenkins
+      get '/git/notifyCommit' do
+        # the only parametry is "ssl" saying git clone URI
+      end
+
+      protected
+
+      def handle_request
         report_ip_validity
         if !ip_validation? || valid_ip?
           if valid_request?
-            handle_event
-
-            204
+            content_type :json
+            jid = handle_event
+            halt({ jid: jid }.to_json)
           else
             Metriks.meter('listener.request.no_payload').mark
             422
@@ -47,10 +68,8 @@ module Travis
         end
       end
 
-      protected
-
       def valid_request?
-        payload
+        provider.valid_request?
       end
 
       def ip_validation?
@@ -76,11 +95,27 @@ module Travis
         (Travis.config.listener && Travis.config.listener.valid_ips) || []
       end
 
+      def set_provider(provider)
+        @provider = ('travis/listener/provider/' + provider).camelize.constantize.new(env, params, request)
+      end
+
+      def provider
+        @provider
+      end
+
       def handle_event
         return unless handle_event?
-        debug "Event payload for #{uuid}: #{payload.inspect}"
-        log_event(event_details, uuid: uuid, delivery_guid: delivery_guid, type: event_type, repository: slug)
-        Travis::Sidekiq::BuildRequest.perform_async(data)
+        debug "Event payload for #{provider.uuid}: #{payload.inspect}, provider: #{provider}"
+        log_event(event_details,
+          uuid: provider.uuid,
+          delivery_guid: provider.delivery_guid,
+          provider: provider.name,
+          type: event_type,
+          repository: provider.slug
+        )
+        provider.each_ref do |data|
+          Travis::Sidekiq::BuildRequest.perform_async(data)
+        end
       end
 
       def handle_event?
@@ -91,81 +126,23 @@ module Travis
         info(event_details.merge(event_basics).map{|k,v| "#{k}=#{v}"}.join(" "))
       end
 
-      def data
-        {
-          :type => event_type,
-          :credentials => credentials,
-          :payload => payload,
-          :uuid => uuid,
-          :github_guid => delivery_guid,
-          :github_event => event_type
-        }
-      end
-
-      def uuid
-        env['HTTP_X_REQUEST_ID'] || Travis.uuid
-      end
-
       def event_type
-        env['HTTP_X_GITHUB_EVENT'] || 'push'
+        provider.event_type
       end
 
       def event_details
-        if event_type == 'pull_request'
-          {
-            number: decoded_payload['number'],
-            action: decoded_payload['action'],
-            source: decoded_payload['pull_request']['head']['repo'] && decoded_payload['pull_request']['head']['repo']['full_name'],
-            head:   decoded_payload['pull_request']['head']['sha'][0..6],
-            ref:    decoded_payload['pull_request']['head']['ref'],
-            user:   decoded_payload['pull_request']['user']['login'],
-          }
-        elsif event_type == 'push'
-          {
-            ref:     decoded_payload['ref'],
-            head:    push_head_commit,
-            commits: (decoded_payload["commits"] || []).map {|c| c['id'][0..6]}.join(",")
-          }
-        end
+        provider.event_details
       rescue => e
         error("Error logging payload: #{e.message}")
-        error("Payload causing error: #{decoded_payload}")
-        Raven.capture_exception(e)
+        error("Payload causing error: #{payload.inspect}")
+        Raven.capture_exception(e) if defined?(Raven)
         {}
       end
 
-      def push_head_commit
-        decoded_payload['head_commit'] && decoded_payload['head_commit']['id'] && decoded_payload['head_commit']['id'][0..6]
-      end
-
-      def delivery_guid
-        env['HTTP_X_GITHUB_GUID']
-      end
-
-      def credentials
-        login, token = Rack::Auth::Basic::Request.new(env).credentials
-        { :login => login, :token => token }
-      end
-
       def payload
-        params[:payload]
+        provider.payload
       end
 
-      def slug
-        "#{owner_login}/#{repository_name}"
-      end
-
-      def owner_login
-        decoded_payload['repository']['owner']['login'] || decoded_payload['repository']['owner']['name']
-      end
-
-      def repository_name
-        decoded_payload['repository']['name']
-      end
-
-      def decoded_payload
-        @decoded_payload ||= MultiJson.load(payload)
-      end
     end
   end
 end

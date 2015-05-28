@@ -1,23 +1,21 @@
 GIT
-  remote: git://github.com/final-ci/travis-sidekiqs.git
-  revision: 21a2fee158e25252dd78f5fa31e81b4f6583be23
-  specs:
-    travis-sidekiqs (0.0.1)
-      sidekiq
-
-GIT
-  remote: git://github.com/final-ci/travis-support.git
-  revision: 6ed312e112452497dc22ab73561f134ffaaa9f77
-  specs:
-    travis-support (0.0.1)
-
-GIT
   remote: git://github.com/getsentry/raven-ruby.git
   revision: bd026531c390a7fbc71980871a7951bc0f2d737f
   specs:
     sentry-raven (0.10.1)
       faraday (>= 0.7.6)
       uuidtools
+
+PATH
+  remote: ../travis-sidekiqs
+  specs:
+    travis-sidekiqs (0.0.1)
+      sidekiq
+
+PATH
+  remote: ../travis-support
+  specs:
+    travis-support (0.0.1)
 
 GEM
   remote: https://rubygems.org/

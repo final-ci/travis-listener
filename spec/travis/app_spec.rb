@@ -17,9 +17,10 @@ describe Travis::Listener::App do
     post(opts[:url] || '/', params, headers)
   end
 
-  it 'results in a 204 if the hook is accepted' do
+  it 'results in a 200 and jid if the hook is accepted' do
     create
-    last_response.status.should be == 204
+    last_response.status.should be == 200
+    JSON.load(last_response.body).should have_key('jid')
   end
 
   describe 'without a payload' do
@@ -36,12 +37,12 @@ describe Travis::Listener::App do
   end
 
   it "should push the message to sidekiq" do
-    Travis::Sidekiq::BuildRequest.should_receive(:perform_async).with(QUEUE_PAYLOAD)
+    Travis::Sidekiq::BuildRequest.should_receive(:perform_async).with(QUEUE_PAYLOAD.merge({ provider: 'github' }))
     create
   end
 
   it "passes the given request ID on" do
-    Travis::Sidekiq::BuildRequest.should_receive(:perform_async).with(QUEUE_PAYLOAD.merge({ :uuid => "abc-def-ghi" }))
+    Travis::Sidekiq::BuildRequest.should_receive(:perform_async).with(QUEUE_PAYLOAD.merge({ provider: 'github', uuid: "abc-def-ghi" }))
     create(headers: { "HTTP_X_REQUEST_ID" => "abc-def-ghi" })
   end
 
@@ -54,7 +55,7 @@ describe Travis::Listener::App do
       it 'accepts a request from an invalid IP' do
         described_class.any_instance.should_receive(:report_ip_validity)
         create headers: { 'REMOTE_ADDR' => '1.2.3.1' }
-        last_response.status.should be == 204
+        last_response.status.should be == 200
       end
     end
 
@@ -65,7 +66,7 @@ describe Travis::Listener::App do
 
       it 'accepts a request from valid IP' do
         create headers: { 'REMOTE_ADDR' => '1.2.3.4' }
-        last_response.status.should be == 204
+        last_response.status.should be == 200
       end
 
       it 'rejects a request without a valid IP' do
@@ -83,16 +84,16 @@ describe Travis::Listener::App do
 
     it 'accepts a request from valid IP' do
       create headers: { 'REMOTE_ADDR' => '1.1.1.0' }
-      last_response.status.should be == 204
+      last_response.status.should be == 200
 
       create headers: { 'REMOTE_ADDR' => '1.1.1.1' }
-      last_response.status.should be == 204
+      last_response.status.should be == 200
 
       create headers: { 'REMOTE_ADDR' => '1.1.1.2' }
-      last_response.status.should be == 204
+      last_response.status.should be == 200
 
       create headers: { 'REMOTE_ADDR' => '1.1.1.3' }
-      last_response.status.should be == 204
+      last_response.status.should be == 200
     end
 
     it 'rejects a request without a valid IP' do
