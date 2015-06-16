@@ -34,7 +34,7 @@ module Travis
         end
 
         def each_ref
-          payload_ref_changes.each do |ref|
+          payload_ref_changes.map do |ref|
             yield data.update(payload: decoded_payload.update(refChange: ref).to_json)
           end
         end
