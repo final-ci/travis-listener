@@ -12,6 +12,8 @@ Example Stash Payload
 
 Following json contains modified stash webook data and contains comments
 which makes the JSON invalid...
+(note that you have to set feature :force_script enabled to make `scirpt` key
+working)
 
      {
 
@@ -19,7 +21,10 @@ which makes the JSON invalid...
        "owner_name": "FINAL-CI",
        ".travis.yml": {
          "language": "bash",
-         "script": "sleep 60; echo 'Hi!'"
+         "script": "sleep 60; echo 'Hi!'",
+         "git": {
+           "no_clone": true
+         }
        },
 
         // from stash webhook
