@@ -1,12 +1,12 @@
 source 'https://rubygems.org'
 
-ruby '2.1.5'
+ruby '2.1.2'
 
-#gem 'travis-support',  github: 'final-ci/travis-support'
-gem 'travis-support',  path: '../travis-support'
+gem 'travis-support',  github: 'final-ci/travis-support'
+#gem 'travis-support',  path: '../travis-support'
 gem 'travis-config',  '~> 0.1.0'
-#gem 'travis-sidekiqs', github: 'final-ci/travis-sidekiqs', require: nil
-gem 'travis-sidekiqs', path: '../travis-sidekiqs', require: nil
+gem 'travis-sidekiqs', github: 'final-ci/travis-sidekiqs', require: nil
+#gem 'travis-sidekiqs', path: '../travis-sidekiqs', require: nil
 
 gem 'sinatra',         '~> 1.4.2'
 gem 'rake',            '~> 0.9.2.2'
