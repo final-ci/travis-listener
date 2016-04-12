@@ -27,14 +27,14 @@ gem 'backports',       '2.4.0'
 gem 'yajl-ruby',       '~> 1.1.0'
 
 # heroku
-gem 'unicorn',         '~> 4.6.2'
+gem 'puma'
 
 group :development, :test do
   gem 'rspec',         '~> 2.9'
 end
 
 group :development do
-  gem 'foreman',       '~> 0.41.0'
+  gem 'foreman',       '~> 0.78'
 end
 
 group :test do
